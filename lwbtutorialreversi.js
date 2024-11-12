@@ -100,6 +100,7 @@ function (dojo, declare) {
             // Setup game notifications to handle (see "setupNotifications" method below)
             this.setupNotifications();
 
+            // document.querySelectorAll('.square').forEach(square => square.addEventListener('click', e => this.onPlayDisc(e)));
             console.log( "Ending game setup" );
         },
        
@@ -112,27 +113,14 @@ function (dojo, declare) {
         //
         onEnteringState: function( stateName, args )
         {
-            console.log( 'Entering state: '+stateName, args );
-            
-            switch( stateName )
-            {
-            
-            /* Example:
-            
-            case 'myGameState':
-            
-                // Show some HTML block at this game state
-                dojo.style( 'my_html_block_id', 'display', 'block' );
-                
-                break;
-           */
-           
-           
-            case 'dummy':
+            console.log( 'Entering state: ' + stateName );
+ 
+            switch( stateName ) {
+                case 'playerTurn':
+                    this.updatePossibleMoves( args.args.possibleMoves );
                 break;
             }
         },
-
         // onLeavingState: this method is called each time we are leaving a game state.
         //                 You can use this method to perform some user interface changes at this moment.
         //
@@ -203,6 +191,22 @@ function (dojo, declare) {
             this.slideToObject( `disc_${x}${y}`, 'square_'+x+'_'+y ).play();
         },  
 
+        updatePossibleMoves: function( possibleMoves )
+        {
+            // Remove current possible moves
+            document.querySelectorAll('.possibleMove').forEach(div => div.classList.remove('possibleMove'));
+
+            for( var x in possibleMoves )
+            {
+                for( var y in possibleMoves[x] )
+                {
+                    // x,y is a possible move
+                    document.getElementById(`square_${x}_${y}`).classList.add('possibleMove');
+                }            
+            }
+                        
+            this.addTooltipToClass( 'possibleMove', '', _('Place a disc here') );
+        },
         ///////////////////////////////////////////////////
         //// Player's action
         
@@ -277,5 +281,27 @@ function (dojo, declare) {
         },    
         
         */
+        // onPlayDisc: function( evt )
+        // {
+        //     // Stop this event propagation
+        //     evt.preventDefault();
+        //     evt.stopPropagation();
+        
+        //     // Get the cliqued square x and y
+        //     // Note: square id format is "square_X_Y"
+        //     var coords = evt.currentTarget.id.split('_');
+        //     var x = coords[1];
+        //     var y = coords[2];
+        
+        //     if(!document.getElementById(`square_${x}_${y}`).classList.contains('possibleMove')) {
+        //         // This is not a possible move => the click does nothing
+        //         return ;
+        //     }
+        
+        //     this.bgaPerformAction("actPlayDisc", {
+        //         x: x,
+        //         y: y
+        //     });
+        // },
    });             
 });
