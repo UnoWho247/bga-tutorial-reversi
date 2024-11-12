@@ -284,7 +284,7 @@ class Game extends \Table
         // Init the board
         $sql = "INSERT INTO board (board_x,board_y,board_player) VALUES ";
         $sql_values = array();
-        list( $whiteplayer_id, $blackplayer_id ) = array_keys( $players );
+        list( $blackplayer_id, $whiteplayer_id ) = array_keys( $players );
         for( $x=1; $x<=8; $x++ ) {
             for( $y=1; $y<=8; $y++ ) {
                 $token_value = "NULL";
