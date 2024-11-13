@@ -59,42 +59,6 @@ class Game extends \Table
         ];
     }
 
-    /**
-     * Player action, example content.
-     *
-     * In this scenario, each time a player plays a card, this method will be called. This method is called directly
-     * by the action trigger on the front side with `bgaPerformAction`.
-     *
-     * @throws BgaUserException
-     */
-    public function actPlayCard(int $card_id): void
-    {
-        // Retrieve the active player ID.
-        $player_id = (int)$this->getActivePlayerId();
-
-        // check input values
-        $args = $this->argPlayerTurn();
-        $playableCardsIds = $args['playableCardsIds'];
-        if (!in_array($card_id, $playableCardsIds)) {
-            throw new \BgaUserException('Invalid card choice');
-        }
-
-        // Add your game logic to play a card here.
-        $card_name = self::$CARD_TYPES[$card_id]['card_name'];
-
-        // Notify all players about the card played.
-        $this->notifyAllPlayers("cardPlayed", clienttranslate('${player_name} plays ${card_name}'), [
-            "player_id" => $player_id,
-            "player_name" => $this->getActivePlayerName(),
-            "card_name" => $card_name,
-            "card_id" => $card_id,
-            "i18n" => ['card_name'],
-        ]);
-
-        // at the end of the action, move to the next state
-        $this->gamestate->nextState("playCard");
-    }
-
     public function actPass(): void
     {
         // Retrieve the active player ID.
@@ -202,36 +166,6 @@ class Game extends \Table
     //     }
     // }
 
-    /**
-     * Migrate database.
-     *
-     * You don't have to care about this until your game has been published on BGA. Once your game is on BGA, this
-     * method is called everytime the system detects a game running with your old database scheme. In this case, if you
-     * change your database scheme, you just have to apply the needed changes in order to update the game database and
-     * allow the game to continue to run with your new version.
-     *
-     * @param int $from_version
-     * @return void
-     */
-    public function upgradeTableDb($from_version)
-    {
-//       if ($from_version <= 1404301345)
-//       {
-//            // ! important ! Use DBPREFIX_<table_name> for all tables
-//
-//            $sql = "ALTER TABLE DBPREFIX_xxxxxxx ....";
-//            $this->applyDbUpgradeToAllDB( $sql );
-//       }
-//
-//       if ($from_version <= 1405061421)
-//       {
-//            // ! important ! Use DBPREFIX_<table_name> for all tables
-//
-//            $sql = "CREATE TABLE DBPREFIX_xxxxxxx ....";
-//            $this->applyDbUpgradeToAllDB( $sql );
-//       }
-    }
-
     /*
      * Gather all information about current game situation (visible by the current player).
      *
@@ -257,7 +191,7 @@ class Game extends \Table
 
         // TODO: Gather all information about current game situation (visible by player $current_player_id).
         // Get reversi board token
-        $result['board'] = self::getObjectListFromDB( "SELECT board_x x, board_y y, board_player player
+        $result['board'] = $this->getObjectListFromDB( "SELECT board_x x, board_y y, board_player player
             FROM board
             WHERE board_player IS NOT NULL" );
 
@@ -379,26 +313,27 @@ class Game extends \Table
     function getBoard()
     {
         $sql = "SELECT board_x x, board_y y, board_player player FROM board";
-        return self::getDoubleKeyCollectionFromDB($sql, true);
+        return $this->getDoubleKeyCollectionFromDB($sql, true);
     }
 
-    function getFlippedDiscs($x, $y, $player_id, $board) {
+    function getFlippedDiscs(int $x, int $y, int $player_id, array $board): array {
         $flippedDiscs = array();
 
         // We can only work with empty spaces, otherwise a disc is already present in that space
         if ($board[$x][$y] === null) {
             $vectors = array (
-                array(0, -1),   // N
-                array(0,  1),   // S 
-                array(1, 0),    // E
-                array(-1, 0),   // W
                 array(-1, -1),  // NW
-                array(1, -1),   // NE
+                array(-1, 0),   // W 
                 array(-1, 1),   // SW
+                array(0, -1),   // N
+                array(0, 1),    // S
+                array(1, -1),   // NE
+                array(1, 0),    // E
                 array(1, 1)     // SE
             );
 
             foreach ($vectors as $vector) {
+                // Starting with the square where we want to place a disc
                 $adjacent_x = $x;
                 $adjacent_y = $y;
                 $continue = true;
@@ -411,7 +346,7 @@ class Game extends \Table
                     if ($adjacent_x < 1 || $adjacent_x > 8 || $adjacent_y < 1 || $adjacent_y > 8) {
                         // Adjacent Space is off the board, stop checking this vector
                         $continue = false;
-                    } else if (is_null($board[$adjacent_x][$adjacent_y])) {
+                    } else if ( $board[$adjacent_x][$adjacent_y] === null ) {
                         // Empty space, stop checking this vector
                         $continue = false;
                     } else if ($board[$adjacent_x][$adjacent_y] != $player_id) {
@@ -433,12 +368,13 @@ class Game extends \Table
         return $flippedDiscs;
     }
 
-    function getPossibleMoves($player_id) {
-        $board = self::getBoard();
+    function getPossibleMoves( int $player_id): array {
+        $board = $this->getBoard();
         $result = array();
+
         for ($x = 1; $x < 8; $x++) {
             for ($y = 1; $y < 8; $y++) {
-                $flippedDiscs = self::getFlippedDiscs($x, $y, $player_id, $board);
+                $flippedDiscs = $this->getFlippedDiscs($x, $y, $player_id, $board);
 
                 if (count($flippedDiscs) == 0) {
                     // Not a possible move
