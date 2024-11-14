@@ -353,8 +353,8 @@ class Game extends \Table
         $board = $this->getBoard();
         $result = array();
 
-        for ($x = 1; $x < 8; $x++) {
-            for ($y = 1; $y < 8; $y++) {
+        for ($x = 1; $x <= 8; $x++) {
+            for ($y = 1; $y <= 8; $y++) {
                 $flippedDiscs = $this->getFlippedDiscs($x, $y, $player_id, $board);
 
                 if (count($flippedDiscs) == 0) {
@@ -363,6 +363,7 @@ class Game extends \Table
                     // Set the 2nd dimension array first time
                     if (!isset($result[$x]))
                         $result[$x] = array();
+
                     $result[$x][$y] = true;
                 }
             }

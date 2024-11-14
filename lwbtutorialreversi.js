@@ -124,28 +124,31 @@ function (dojo, declare) {
         // onLeavingState: this method is called each time we are leaving a game state.
         //                 You can use this method to perform some user interface changes at this moment.
         //
-        onLeavingState: function( stateName )
-        {
-            console.log( 'Leaving state: '+stateName );
-            
-            switch( stateName )
-            {
-            
-            /* Example:
-            
-            case 'myGameState':
-            
-                // Hide the HTML block we are displaying only during this game state
-                dojo.style( 'my_html_block_id', 'display', 'none' );
-                
-                break;
-           */
-           
-           
-            case 'dummy':
-                break;
-            }               
+        onLeavingState: function( stateName ) {
+            console.log( 'Leaving state: ' + stateName );           
         }, 
+
+        onPlayDisc: function( evt ) {
+            // Stop this event propagation
+            evt.preventDefault();
+            evt.stopPropagation();
+        
+            // Get the cliqued square x and y
+            // Note: square id format is "square_X_Y"
+            var coords = evt.currentTarget.id.split('_');
+            var x = coords[1];
+            var y = coords[2];
+        
+            if(!document.getElementById(`square_${x}_${y}`).classList.contains('possibleMove')) {
+                // This is not a possible move => the click does nothing
+                return ;
+            }
+        
+            this.bgaPerformAction("actPlayDisc", {
+                x: x,
+                y: y
+            });
+        },
 
         ///////////////////////////////////////////////////
         //// Utility methods
@@ -156,8 +159,7 @@ function (dojo, declare) {
             script.
         
         */
-        addDiscOnBoard: function( x, y, player )
-        {
+        addDiscOnBoard: function( x, y, player ) {
             var color = this.gamedatas.players[ player ].color;
             
             document.getElementById('discs').insertAdjacentHTML('beforeend', `<div class="disc" data-color="${color}" id="disc_${x}${y}"></div>`);
@@ -166,8 +168,7 @@ function (dojo, declare) {
             this.slideToObject( `disc_${x}${y}`, 'square_'+x+'_'+y ).play();
         },  
 
-        updatePossibleMoves: function( possibleMoves )
-        {
+        updatePossibleMoves: function( possibleMoves ) {
             // Remove current possible moves
             document.querySelectorAll('.possibleMove').forEach(div => div.classList.remove('possibleMove'));
 
@@ -198,44 +199,60 @@ function (dojo, declare) {
                   your lwbtutorialreversi.game.php file.
         
         */
-        setupNotifications: function()
-        {
+        setupNotifications: function() {
             console.log( 'notifications subscriptions setup' );
             
-            // TODO: here, associate your game notifications with local methods
-            
-            // Example 1: standard notification handling
-            // dojo.subscribe( 'cardPlayed', this, "notif_cardPlayed" );
-            
-            // Example 2: standard notification handling + tell the user interface to wait
-            //            during 3 seconds after calling the method in order to let the players
-            //            see what is happening in the game.
-            // dojo.subscribe( 'cardPlayed', this, "notif_cardPlayed" );
-            // this.notifqueue.setSynchronous( 'cardPlayed', 3000 );
-            // 
-        },  
-
-        onPlayDisc: function( evt )
-        {
-            // Stop this event propagation
-            evt.preventDefault();
-            evt.stopPropagation();
-        
-            // Get the cliqued square x and y
-            // Note: square id format is "square_X_Y"
-            var coords = evt.currentTarget.id.split('_');
-            var x = coords[1];
-            var y = coords[2];
-        
-            if(!document.getElementById(`square_${x}_${y}`).classList.contains('possibleMove')) {
-                // This is not a possible move => the click does nothing
-                return ;
-            }
-        
-            this.bgaPerformAction("actPlayDisc", {
-                x: x,
-                y: y
+            const notifs = [
+                ['playDisc', 500],
+                ['discsFlipped', 1500],
+                ['newScores', 1],
+            ];
+    
+            notifs.forEach((notif) => {
+                dojo.subscribe(notif[0], this, `notif_${notif[0]}`);
+                this.notifqueue.setSynchronous(notif[0], notif[1]);
             });
+        },
+
+        notif_playDisc: function( notif ) {
+            // Remove current possible moves (makes the board more clear)
+            document.querySelectorAll('.possibleMove').forEach(div => div.classList.remove('possibleMove'));
+        
+            this.addDiscOnBoard( notif.args.x, notif.args.y, notif.args.player_id );
+        },
+
+        notif_discsFlipped: function( notif ) {
+            // Get the color of the player who is returning the discs
+            var targetColor = this.gamedatas.players[ notif.args.player_id ].color;
+
+            // Make these discs blinking and set them to the specified color
+            for( var i in notif.args.turnedOver ) {
+                var disc = notif.args.turnedOver[ i ];
+                var disc_node = 'disc_' + disc.x + '' + disc.y;
+
+                // Make the disc blink 2 times
+                var anim = dojo.fx.chain( [
+                    dojo.fadeOut( { node: disc_node } ),
+                    dojo.fadeIn( { node: disc_node } ),
+                    dojo.fadeOut( { 
+                                    node: disc_node,
+                                    onEnd: node => $(node).dataset.color = targetColor,
+                                    } ),
+                    dojo.fadeIn( { node: disc_node } )
+                                    
+                ] ); // end of dojo.fx.chain
+
+                // ... and launch the animation
+                anim.play();                
+            }
+        },
+
+        notif_newScores: function( notif ) {
+            for( var player_id in notif.args.scores )
+            {
+                var newScore = notif.args.scores[ player_id ];
+                this.scoreCtrl[ player_id ].toValue( newScore );
+            }
         },
    });             
 });
