@@ -100,6 +100,7 @@ function (dojo, declare) {
             // Setup game notifications to handle (see "setupNotifications" method below)
             this.setupNotifications();
 
+            // document.querySelectorAll('.square').forEach(square => square.addEventListener('click', e => this.onPlayDisc(e)));
             console.log( "Ending game setup" );
         },
        
@@ -112,27 +113,14 @@ function (dojo, declare) {
         //
         onEnteringState: function( stateName, args )
         {
-            console.log( 'Entering state: '+stateName, args );
-            
-            switch( stateName )
-            {
-            
-            /* Example:
-            
-            case 'myGameState':
-            
-                // Show some HTML block at this game state
-                dojo.style( 'my_html_block_id', 'display', 'block' );
-                
-                break;
-           */
-           
-           
-            case 'dummy':
+            console.log( 'Entering state: ' + stateName );
+ 
+            switch( stateName ) {
+                case 'playerTurn':
+                    this.updatePossibleMoves( args.args.possibleMoves );
                 break;
             }
         },
-
         // onLeavingState: this method is called each time we are leaving a game state.
         //                 You can use this method to perform some user interface changes at this moment.
         //
@@ -159,31 +147,6 @@ function (dojo, declare) {
             }               
         }, 
 
-        // onUpdateActionButtons: in this method you can manage "action buttons" that are displayed in the
-        //                        action status bar (ie: the HTML links in the status bar).
-        //        
-        onUpdateActionButtons: function( stateName, args )
-        {
-            console.log( 'onUpdateActionButtons: '+stateName, args );
-                      
-            if( this.isCurrentPlayerActive() )
-            {            
-                switch( stateName )
-                {
-                 case 'playerTurn':    
-                    const playableCardsIds = args.playableCardsIds; // returned by the argPlayerTurn
-
-                    // Add test action buttons in the action status bar, simulating a card click:
-                    playableCardsIds.forEach(
-                        cardId => this.addActionButton(`actPlayCard${cardId}-btn`, _('Play card with id ${card_id}').replace('${card_id}', cardId), () => this.onCardClick(cardId))
-                    ); 
-
-                    this.addActionButton('actPass-btn', _('Pass'), () => this.bgaPerformAction("actPass"), null, null, 'gray'); 
-                    break;
-                }
-            }
-        },        
-
         ///////////////////////////////////////////////////
         //// Utility methods
         
@@ -203,33 +166,24 @@ function (dojo, declare) {
             this.slideToObject( `disc_${x}${y}`, 'square_'+x+'_'+y ).play();
         },  
 
+        updatePossibleMoves: function( possibleMoves )
+        {
+            // Remove current possible moves
+            document.querySelectorAll('.possibleMove').forEach(div => div.classList.remove('possibleMove'));
+
+            for( var x in possibleMoves )
+            {
+                for( var y in possibleMoves[x] )
+                {
+                    // x,y is a possible move
+                    document.getElementById(`square_${x}_${y}`).classList.add('possibleMove');
+                }            
+            }
+                        
+            this.addTooltipToClass( 'possibleMove', '', _('Place a disc here') );
+        },
         ///////////////////////////////////////////////////
         //// Player's action
-        
-        /*
-        
-            Here, you are defining methods to handle player's action (ex: results of mouse click on 
-            game objects).
-            
-            Most of the time, these methods:
-            _ check the action is possible at this game state.
-            _ make a call to the game server
-        
-        */
-        
-        // Example:
-        
-        onCardClick: function( card_id )
-        {
-            console.log( 'onCardClick', card_id );
-
-            this.bgaPerformAction("actPlayCard", { 
-                card_id,
-            }).then(() =>  {                
-                // What to do after the server call if it succeeded
-                // (most of the time, nothing, as the game will react to notifs / change of state instead)
-            });        
-        },    
 
         
         ///////////////////////////////////////////////////
@@ -277,5 +231,27 @@ function (dojo, declare) {
         },    
         
         */
+        // onPlayDisc: function( evt )
+        // {
+        //     // Stop this event propagation
+        //     evt.preventDefault();
+        //     evt.stopPropagation();
+        
+        //     // Get the cliqued square x and y
+        //     // Note: square id format is "square_X_Y"
+        //     var coords = evt.currentTarget.id.split('_');
+        //     var x = coords[1];
+        //     var y = coords[2];
+        
+        //     if(!document.getElementById(`square_${x}_${y}`).classList.contains('possibleMove')) {
+        //         // This is not a possible move => the click does nothing
+        //         return ;
+        //     }
+        
+        //     this.bgaPerformAction("actPlayDisc", {
+        //         x: x,
+        //         y: y
+        //     });
+        // },
    });             
 });
