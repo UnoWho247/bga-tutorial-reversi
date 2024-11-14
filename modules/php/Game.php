@@ -107,64 +107,45 @@ class Game extends \Table
         return 0;
     }
 
-    /**
-     * Game state action, example content.
-     *
-     * The action method of state `nextPlayer` is called everytime the current game state is set to `nextPlayer`.
-     */
     public function stNextPlayer(): void {
-        // Retrieve the active player ID.
-        $player_id = (int)$this->getActivePlayerId();
+        // Active next player
+        $player_id = intval($this->activeNextPlayer());
 
-        // Give some extra time to the active player when he completed an action
-        $this->giveExtraTime($player_id);
+        // Check if both player has at least 1 discs, and if there are free squares to play
+        $player_to_discs = $this->getCollectionFromDb( "SELECT board_player, COUNT( board_x )
+                                                        FROM board
+                                                        GROUP BY board_player", true );
+
+        if(!isset($player_to_discs[null])) {
+            // Index 0 has not been set => there's no more free place on the board !
+            // => end of the game
+            $this->gamestate->nextState('endGame');
+            return;
+        } else if (!isset($player_to_discs[$player_id])) {
+            // Active player has no more disc on the board => he looses immediately
+            $this->gamestate->nextState('endGame');
+            return;
+        }
         
-        $this->activeNextPlayer();
-
-        // Go to another gamestate
-        // Here, we would detect if the game is over, and in this case use "endGame" transition instead 
-        $this->gamestate->nextState("nextPlayer");
+        // Can this player play?
+        $possibleMoves = $this->getPossibleMoves($player_id);
+        if (count($possibleMoves) == 0) {
+            // This player can't play
+            // Can his opponent play ?
+            $opponent_id = (int)$this->getUniqueValueFromDb( "SELECT player_id FROM player WHERE player_id!='$player_id'");
+            if(count($this->getPossibleMoves($opponent_id)) == 0) {
+                // Nobody can move => end of the game
+                $this->gamestate->nextState('endGame');
+            } else {            
+                // => pass his turn
+                $this->gamestate->nextState('cantPlay');
+            }
+        } else {
+            // This player can play. Give him some extra time
+            $this->giveExtraTime( $player_id );
+            $this->gamestate->nextState( 'nextTurn' );
+        }
     }
-
-    // public function stNextPlayer(): void {
-    //     // Active next player
-    //     $player_id = intval($this->activeNextPlayer());
-
-    //     // Check if both player has at least 1 discs, and if there are free squares to play
-    //     $player_to_discs = $this->getCollectionFromDb( "SELECT board_player, COUNT( board_x )
-    //                                                     FROM board
-    //                                                     GROUP BY board_player", true );
-
-    //     if(!isset($player_to_discs[null])) {
-    //         // Index 0 has not been set => there's no more free place on the board !
-    //         // => end of the game
-    //         $this->gamestate->nextState('endGame');
-    //         return;
-    //     } else if (!isset($player_to_discs[$player_id])) {
-    //         // Active player has no more disc on the board => he looses immediately
-    //         $this->gamestate->nextState('endGame');
-    //         return;
-    //     }
-        
-    //     // Can this player play?
-    //     $possibleMoves = $this->getPossibleMoves($player_id);
-    //     if (count($possibleMoves) == 0) {
-    //         // This player can't play
-    //         // Can his opponent play ?
-    //         $opponent_id = (int)$this->getUniqueValueFromDb( "SELECT player_id FROM player WHERE player_id!='$player_id'");
-    //         if(count($this->getPossibleMoves($opponent_id)) == 0) {
-    //             // Nobody can move => end of the game
-    //             $this->gamestate->nextState('endGame');
-    //         } else {            
-    //             // => pass his turn
-    //             $this->gamestate->nextState('cantPlay');
-    //         }
-    //     } else {
-    //         // This player can play. Give him some extra time
-    //         $this->giveExtraTime( $player_id );
-    //         $this->gamestate->nextState( 'nextTurn' );
-    //     }
-    // }
 
     /*
      * Gather all information about current game situation (visible by the current player).
@@ -389,66 +370,66 @@ class Game extends \Table
         return $result;
     }
 
-    // function actPlayDisc( int $x, int $y ) {
-    //     $player_id = intval($this->getActivePlayerId()); 
+    function actPlayDisc( int $x, int $y ) {
+        $player_id = intval($this->getActivePlayerId()); 
         
-    //     // Now, check if this is a possible move
-    //     $board = $this->getBoard();
-    //     $flippedDiscs = $this->getFlippedDiscs( $x, $y, $player_id, $board );
+        // Now, check if this is a possible move
+        $board = $this->getBoard();
+        $flippedDiscs = $this->getFlippedDiscs( $x, $y, $player_id, $board );
         
-    //     if( count( $flippedDiscs ) > 0 ) {
-    //         // This move is possible!
-    //         // Let's place a disc at x,y and return all "$returned" discs to the active player
+        if( count( $flippedDiscs ) > 0 ) {
+            // This move is possible!
+            // Let's place a disc at x,y and return all "$returned" discs to the active player
             
-    //         $sql = "UPDATE board SET board_player='$player_id'
-    //                 WHERE ( board_x, board_y) IN ( ";
+            $sql = "UPDATE board SET board_player='$player_id'
+                    WHERE ( board_x, board_y) IN ( ";
             
-    //         foreach( $flippedDiscs as $flipped )
-    //         {
-    //             $sql .= "('".$flipped['x']."','".$flipped['y']."'),";
-    //         }
-    //         $sql .= "('$x','$y') ) ";
+            foreach( $flippedDiscs as $flipped )
+            {
+                $sql .= "('".$flipped['x']."','".$flipped['y']."'),";
+            }
+            $sql .= "('$x','$y') ) ";
                        
-    //         $this->DbQuery( $sql );
+            $this->DbQuery( $sql );
 
-    //         // Update scores according to the number of disc on board
-    //         $sql = "UPDATE player
-    //                 SET player_score = (
-    //                 SELECT COUNT( board_x ) FROM board WHERE board_player=player_id
-    //                 )";
-    //         $this->DbQuery( $sql );
+            // Update scores according to the number of disc on board
+            $sql = "UPDATE player
+                    SET player_score = (
+                    SELECT COUNT( board_x ) FROM board WHERE board_player=player_id
+                    )";
+            $this->DbQuery( $sql );
             
-    //         // Statistics
-    //         $this->incStat( count( $flippedDiscs ), "turnedOver", $player_id );
-    //         if( ($x==1 && $y==1) || ($x==8 && $y==1) || ($x==1 && $y==8) || ($x==8 && $y==8) )
-    //             $this->incStat( 1, 'discPlayedInCorner', $player_id );
-    //         else if( $x==1 || $x==8 || $y==1 || $y==8 )
-    //             $this->incStat( 1, 'discPlayedOnBorder', $player_id );
-    //         else if( $x>=3 && $x<=6 && $y>=3 && $y<=6 )
-    //             $this->incStat( 1, 'discPlayedInCenter', $player_id );
+            // Statistics
+            $this->incStat( count( $flippedDiscs ), "turnedOver", $player_id );
+            if( ($x==1 && $y==1) || ($x==8 && $y==1) || ($x==1 && $y==8) || ($x==8 && $y==8) )
+                $this->incStat( 1, 'discPlayedInCorner', $player_id );
+            else if( $x==1 || $x==8 || $y==1 || $y==8 )
+                $this->incStat( 1, 'discPlayedOnBorder', $player_id );
+            else if( $x>=3 && $x<=6 && $y>=3 && $y<=6 )
+                $this->incStat( 1, 'discPlayedInCenter', $player_id );
 
-    //         // Notify
-    //         $this->notifyAllPlayers( "playDisc", clienttranslate( '${player_name} plays a disc and turns over ${returned_nbr} disc(s)' ), array(
-    //             'player_id' => $player_id,
-    //             'player_name' => $this->getActivePlayerName(),
-    //             'returned_nbr' => count( $flippedDiscs ),
-    //             'x' => $x,
-    //             'y' => $y
-    //         ) );
+            // Notify
+            $this->notifyAllPlayers( "playDisc", clienttranslate( '${player_name} plays a disc and turns over ${returned_nbr} disc(s)' ), array(
+                'player_id' => $player_id,
+                'player_name' => $this->getActivePlayerName(),
+                'returned_nbr' => count( $flippedDiscs ),
+                'x' => $x,
+                'y' => $y
+            ) );
 
-    //         $this->notifyAllPlayers( "discsFlipped", '', array(
-    //             'player_id' => $player_id,
-    //             'turnedOver' => $flippedDiscs
-    //         ) );
+            $this->notifyAllPlayers( "discsFlipped", '', array(
+                'player_id' => $player_id,
+                'turnedOver' => $flippedDiscs
+            ) );
             
-    //         $newScores = $this->getCollectionFromDb( "SELECT player_id, player_score FROM player", true );
-    //         $this->notifyAllPlayers( "newScores", "", array(
-    //             "scores" => $newScores
-    //         ) );
+            $newScores = $this->getCollectionFromDb( "SELECT player_id, player_score FROM player", true );
+            $this->notifyAllPlayers( "newScores", "", array(
+                "scores" => $newScores
+            ) );
 
-    //         // Then, go to the next state
-    //         $this->gamestate->nextState( 'playDisc' );
-    //     } else
-    //         throw new \BgaSystemException( "Impossible move" );
-    // }
+            // Then, go to the next state
+            $this->gamestate->nextState( 'playDisc' );
+        } else
+            throw new \BgaSystemException( "Impossible move" );
+    }
 }

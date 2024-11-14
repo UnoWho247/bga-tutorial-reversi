@@ -100,7 +100,7 @@ function (dojo, declare) {
             // Setup game notifications to handle (see "setupNotifications" method below)
             this.setupNotifications();
 
-            // document.querySelectorAll('.square').forEach(square => square.addEventListener('click', e => this.onPlayDisc(e)));
+            document.querySelectorAll('.square').forEach(square => square.addEventListener('click', e => this.onPlayDisc(e)));
             console.log( "Ending game setup" );
         },
        
@@ -214,44 +214,28 @@ function (dojo, declare) {
             // this.notifqueue.setSynchronous( 'cardPlayed', 3000 );
             // 
         },  
-        
-        // TODO: from this point and below, you can write your game notifications handling methods
-        
-        /*
-        Example:
-        
-        notif_cardPlayed: function( notif )
+
+        onPlayDisc: function( evt )
         {
-            console.log( 'notif_cardPlayed' );
-            console.log( notif );
-            
-            // Note: notif.args contains the arguments specified during you "notifyAllPlayers" / "notifyPlayer" PHP call
-            
-            // TODO: play the card in the user interface.
-        },    
+            // Stop this event propagation
+            evt.preventDefault();
+            evt.stopPropagation();
         
-        */
-        // onPlayDisc: function( evt )
-        // {
-        //     // Stop this event propagation
-        //     evt.preventDefault();
-        //     evt.stopPropagation();
+            // Get the cliqued square x and y
+            // Note: square id format is "square_X_Y"
+            var coords = evt.currentTarget.id.split('_');
+            var x = coords[1];
+            var y = coords[2];
         
-        //     // Get the cliqued square x and y
-        //     // Note: square id format is "square_X_Y"
-        //     var coords = evt.currentTarget.id.split('_');
-        //     var x = coords[1];
-        //     var y = coords[2];
+            if(!document.getElementById(`square_${x}_${y}`).classList.contains('possibleMove')) {
+                // This is not a possible move => the click does nothing
+                return ;
+            }
         
-        //     if(!document.getElementById(`square_${x}_${y}`).classList.contains('possibleMove')) {
-        //         // This is not a possible move => the click does nothing
-        //         return ;
-        //     }
-        
-        //     this.bgaPerformAction("actPlayDisc", {
-        //         x: x,
-        //         y: y
-        //     });
-        // },
+            this.bgaPerformAction("actPlayDisc", {
+                x: x,
+                y: y
+            });
+        },
    });             
 });
